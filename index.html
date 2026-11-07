@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="10by10 mini記録">
+<meta name="theme-color" content="#1f3a5f">
+<title>10by10by10 mini記録ツール</title>
+<style>
+:root{--bg:#f3f5f8;--card:#fff;--ink:#1b2430;--sub:#5b6676;--line:#d6dce4;--pri:#1f3a5f;--A:#c0392b;--B:#1f5fa8;--ok:#1e8e3e;--ng:#c62828;--warn:#b26a00;--rest:#9aa3ad}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic UI","Meiryo",sans-serif;font-size:15px}
+body{padding-bottom:env(safe-area-inset-bottom)}
+header{position:sticky;top:0;z-index:10;background:var(--pri);color:#fff;padding:calc(6px + env(safe-area-inset-top)) 10px 0}
+header h1{font-size:16px;margin:2px 0 6px;font-weight:700}
+nav{display:flex;gap:4px;overflow-x:auto;-webkit-overflow-scrolling:touch}
+nav button{flex:0 0 auto;background:transparent;color:#cfd9e6;border:0;border-bottom:3px solid transparent;padding:8px 12px;font-size:15px;font-weight:600}
+nav button.on{color:#fff;border-bottom-color:#ffd166}
+main{padding:10px;max-width:1300px;margin:0 auto}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:10px}
+.card h2{font-size:16px;margin:0 0 8px}
+.card h3{font-size:15px;margin:10px 0 6px}
+button,select,input,textarea{font:inherit;touch-action:manipulation}
+input,select,textarea{border:1px solid var(--line);border-radius:6px;padding:6px 8px;background:#fff;color:var(--ink);font-size:16px}
+textarea{width:100%;min-height:90px}
+.btn{background:var(--pri);color:#fff;border:0;border-radius:8px;padding:9px 14px;font-weight:600;min-height:40px}
+.btn.sub{background:#e8edf3;color:var(--ink)}
+.btn.danger{background:#fbe9e9;color:var(--ng)}
+.btn:disabled{opacity:.4}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.seg{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.seg button{border:1px solid var(--line);background:#fff;border-radius:16px;padding:6px 12px}
+.seg button.on{background:var(--pri);color:#fff;border-color:var(--pri)}
+table{border-collapse:collapse;width:100%}
+th,td{border-bottom:1px solid var(--line);padding:5px 6px;text-align:left;vertical-align:middle}
+th{background:#eef2f7;font-size:13px;white-space:nowrap}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+.tbl{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.grid input{width:100%;min-width:90px}
+.msg{font-size:13px;color:var(--sub)}
+.err{color:var(--ng);font-size:13px}
+.okc{color:var(--ok);font-size:13px}
+.pos{color:var(--ok);font-weight:700}
+.neg{color:var(--ng);font-weight:700}
+.zero{color:var(--sub)}
+/* input screen */
+.qbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.qno{font-size:22px;font-weight:800}
+.qtext{flex:1 1 260px;font-size:14px}
+.teams{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media (max-width:760px){.teams{grid-template-columns:1fr}}
+.team{border-radius:10px;border:2px solid var(--line);background:#fff;padding:8px}
+.team.A{border-color:var(--A)}.team.B{border-color:var(--B)}
+.thead{display:flex;justify-content:space-between;align-items:baseline;gap:6px;flex-wrap:wrap;margin-bottom:6px}
+.tname{font-weight:800;font-size:17px}
+.team.A .tname{color:var(--A)}.team.B .tname{color:var(--B)}
+.tprod{font-size:14px;color:var(--sub)}
+.tprod b{font-size:20px;color:var(--ink)}
+.frames{display:grid;grid-template-columns:repeat(5,1fr);gap:5px}
+@media (max-width:430px){.frames{gap:3px}}
+.fr{border:1px solid var(--line);border-radius:8px;padding:4px;text-align:center;background:#fafbfc;display:flex;flex-direction:column;gap:4px;min-width:0}
+.fr.miss{background:#fff6e5;border-color:#f0c36d}
+.fr.rest{background:#e9ecef;border-color:var(--rest);opacity:.75}
+.fno{font-size:11px;color:var(--sub)}
+.fp{font-size:30px;font-weight:800;line-height:1}
+.fst{font-size:11px;height:14px;color:var(--warn);font-weight:700}
+.fr.rest .fst{color:#555}
+.pl{border-top:1px dashed var(--line);padding-top:3px}
+.pn{font-size:12px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pb{display:flex;gap:3px;margin-top:2px}
+.pb button{flex:1;border:0;border-radius:6px;min-height:40px;font-size:18px;font-weight:800;color:#fff;padding:0}
+.pb .o{background:var(--ok)}.pb .x{background:var(--ng)}
+.pb button:disabled{background:#c9ced4}
+.ctrl{display:flex;gap:8px;margin:10px 0;flex-wrap:wrap}
+.ctrl .btn{min-height:50px;font-size:17px;flex:1 1 120px}
+.win{background:#fff4c2;border:2px solid #e0b400;border-radius:8px;padding:8px;font-weight:800;text-align:center;margin-bottom:8px}
+.log{max-height:260px;overflow-y:auto;font-size:13px;border:1px solid var(--line);border-radius:8px;padding:6px;background:#fff}
+.log div{padding:2px 0;border-bottom:1px dotted #e3e7ec}
+.tagA{color:var(--A);font-weight:700}.tagB{color:var(--B);font-weight:700}
+.chart{width:100%;height:auto;background:#fff;border:1px solid var(--line);border-radius:8px}
+.small{font-size:12px}
+.nw td,.nw th{white-space:nowrap}
+.qcell{max-width:280px;min-width:150px;font-size:12px;color:var(--sub);white-space:normal!important}
+.prog{font-size:13px;color:var(--warn);font-weight:700}
+.chk{display:flex;align-items:center;gap:6px;padding:4px 0}
+.chk input{width:20px;height:20px}
+.hide{display:none!important}
+</style>
+</head>
+<body>
+<header>
+<h1>10by10by10 mini記録ツール</h1>
+<nav id="nav">
+<button data-v="team">チーム登録</button>
+<button data-v="match">試合・問題</button>
+<button data-v="input">記録入力</button>
+<button data-v="contrib">貢献度</button>
+<button data-v="export">出力</button>
+<button data-v="settings">設定</button>
+</nav>
+</header>
+<main id="main"></main>
+<script>
+"use strict";
+/* ===== 定数・保存 ===== */
+const KEY='tbt_mini_record_v1';
+// 想定正答率ごとの係数（シミュレーション8000試合分の局面にロジスティック回帰を当てはめた推定値）
+const PRESETS={
+ '0.6':{a:0.017,b:0.125,c:0.034,d:0.003,e:0.064},
+ '0.7':{a:0.092,b:0.151,c:0.134,d:0.022,e:0.052},
+ '0.8':{a:0.087,b:0.266,c:0.279,d:0.037,e:0.148},
+ '0.9':{a:0.183,b:0.319,c:0.566,d:0.080,e:0.229}
+};
+const DEF_SET={...PRESETS['0.7'],preset:'0.7',mode:'approx',rate:0.7,mcN:2000,target:200,scale:1000,contWrong:false,showAns:true};
+function uid(){return Math.random().toString(36).slice(2,9)+Date.now().toString(36).slice(-5);}
+function emptyPlayers(){return Array.from({length:10},()=>({id:uid(),name:'',rec:'',frame:0}));}
+function defaultDB(){return {teams:Array.from({length:10},()=>({id:uid(),name:'',players:emptyPlayers()})),matches:[],settings:{...DEF_SET},ui:{view:'team',teamSel:0,matchSel:null,cur:null,cSel:null,multi:[],exSel:[]}};}
+function normalize(d){
+ const base=defaultDB();
+ if(!d||!Array.isArray(d.teams))return base;
+ d.settings={...DEF_SET,...(d.settings||{})};
+ d.ui={...base.ui,...(d.ui||{})};
+ while(d.teams.length<10)d.teams.push({id:uid(),name:'',players:emptyPlayers()});
+ d.teams.forEach(t=>{t.players=t.players||[];while(t.players.length<10)t.players.push({id:uid(),name:'',rec:'',frame:0});});
+ d.matches=d.matches||[];
+ d.matches.forEach(m=>{m.questions=m.questions||{};m.events=m.events||[];});
+ return d;
+}
+function load(){try{return normalize(JSON.parse(localStorage.getItem(KEY)));}catch(e){return defaultDB();}}
+let db=load();
+function save(){try{localStorage.setItem(KEY,JSON.stringify(db));}catch(e){alert('保存に失敗しました（端末の保存容量不足の可能性があります）');}}
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const recName=p=>(p.rec&&p.rec.trim())?p.rec.trim():p.name;
+const filled=t=>t.players.filter(p=>p.name&&p.name.trim());
+
+function validateTeam(t){
+ const e=[],ps=filled(t);
+ if(!t.name||!t.name.trim())e.push('チーム名が未入力です');
+ if(ps.length<5||ps.length>10)e.push(`人数は5～10人にしてください（現在${ps.length}人）`);
+ if(ps.some(p=>!(p.frame>=1&&p.frame<=5)))e.push('枠が未設定の選手がいます');
+ for(let f=1;f<=5;f++){const n=ps.filter(p=>+p.frame===f).length;if(n===0)e.push(`枠${f}に選手がいません`);if(n>2)e.push(`枠${f}は2人までです（現在${n}人）`);}
+ return e;
+}
+
+/* ===== ルールエンジン ===== */
+function initState(){return {t:[0,1].map(()=>Array.from({length:5},()=>({p:1,m:0,r:0}))),win:-1};}
+function cloneS(s){return {t:s.t.map(a=>a.map(f=>({p:f.p,m:f.m,r:f.r}))),win:s.win};}
+const prodT=a=>a.reduce((x,f)=>x*f.p,1);
+// ev: {type:'o'|'x'|'t', side:0|1, frame:1..5}
+function applyEv(s,ev,T){
+ const n=cloneS(s);
+ if(ev.type==='t'||n.win>=0)return n;
+ const f=n.t[ev.side][ev.frame-1];
+ if(ev.type==='o'){f.p++;if(prodT(n.t[ev.side])>T)n.win=ev.side;}
+ else{
+  if(f.m===0){f.p=1;f.m=1;}else{f.p=1;f.r=1;}       // 1回目: 1に戻す / 2回目: 1に戻して休み
+  for(const g of n.t[1-ev.side])if(g.r){g.r=0;g.m=1;g.p=1;} // 相手の休みを解除（1回目誤答後と同じ状態）
+ }
+ return n;
+}
+function replay(m){const T=db.settings.target;const st=[initState()];for(const ev of m.events)st.push(applyEv(st[st.length-1],ev,T));return st;}
+// 勝利までの最少正解数 D（小さい枠から+1する貪欲法が最適: 対数の凹性による）
+function distD(ps,T){ps=ps.slice().sort((a,b)=>a-b);let k=0;const pr=a=>a.reduce((x,y)=>x*y,1);while(pr(ps)<=T&&k<1000){ps[0]++;ps.sort((a,b)=>a-b);k++;}return k;}
+function feats(s,T){
+ const L=[],D=[],A=[],M=[],S=[];
+ for(const tm of s.t){
+  const ps=tm.map(f=>f.p),l=ps.map(Math.log),mu=l.reduce((a,b)=>a+b,0)/5;
+  L.push(l.reduce((a,b)=>a+b,0));D.push(distD(ps,T));
+  A.push(tm.filter(f=>!f.r).length);M.push(tm.filter(f=>f.m&&!f.r).length);
+  S.push(l.reduce((a,x)=>a+(x-mu)*(x-mu),0));
+ }
+ return {L:L[0]-L[1],D:D[1]-D[0],A:A[0]-A[1],M:M[1]-M[0],S:S[0]-S[1],DA:D[0],DB:D[1]};
+}
+// 近似式: V = aL + b(DB-DA) + c(AA-AB) + d(MB-MA) - e(SA-SB),  W = 1/(1+e^-V)
+function Wapprox(s,st){
+ if(s.win>=0)return s.win===0?1:0;
+ const x=feats(s,st.target);
+ const V=st.a*x.L+st.b*x.D+st.c*x.A+st.d*x.M-st.e*x.S;
+ return 1/(1+Math.exp(-V));
+}
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+// 精密モード: モンテカルロ（全局面で同じ乱数列を使い、差分の誤差を抑える）
+function Wmc(s,st){
+ if(s.win>=0)return s.win===0?1:0;
+ const N=Math.max(100,Math.min(20000,st.mcN|0)),rate=st.rate,T=st.target,rng=mulberry32(20261107);
+ const P0=new Int32Array(10),M0=new Int8Array(10),R0=new Int8Array(10);
+ for(let k=0;k<2;k++)for(let i=0;i<5;i++){const f=s.t[k][i];P0[k*5+i]=f.p;M0[k*5+i]=f.m;R0[k*5+i]=f.r;}
+ const p=new Int32Array(10),m=new Int8Array(10),r=new Int8Array(10),act=new Int32Array(10);
+ let wins=0;
+ for(let n=0;n<N;n++){
+  p.set(P0);m.set(M0);r.set(R0);
+  for(let step=0;step<10000;step++){
+   let na=0;for(let j=0;j<10;j++)if(!r[j])act[na++]=j;
+   const j=act[Math.floor(rng()*na)],k=j<5?0:1,b=k*5;
+   if(rng()<rate){p[j]++;const pr=p[b]*p[b+1]*p[b+2]*p[b+3]*p[b+4];if(pr>T){if(k===0)wins++;break;}}
+   else{if(!m[j]){p[j]=1;m[j]=1;}else{p[j]=1;r[j]=1;}const o=(1-k)*5;for(let q=o;q<o+5;q++)if(r[q]){r[q]=0;m[q]=1;p[q]=1;}}
+  }
+ }
+ return wins/N;
+}
+const Wcache={};
+function setKey(){const s=db.settings;return [s.mode,s.a,s.b,s.c,s.d,s.e,s.rate,s.mcN,s.target].join('|');}
+async function computeW(m,progress){
+ const key=setKey()+'#'+JSON.stringify(m.events.map(e=>[e.type,e.side,e.frame]));
+ if(Wcache[m.id]&&Wcache[m.id].key===key)return Wcache[m.id].W;
+ const st=db.settings,states=replay(m),W=[];
+ if(st.mode==='mc'){
+  const memo=new Map();
+  for(let i=0;i<states.length;i++){
+   const sk=JSON.stringify(states[i]);
+   if(!memo.has(sk))memo.set(sk,Wmc(states[i],st));
+   W.push(memo.get(sk));
+   if(progress&&i%3===0){progress(i+1,states.length);await new Promise(r=>setTimeout(r,0));}
+  }
+ }else for(const s of states)W.push(Wapprox(s,st));
+ Wcache[m.id]={key,W};
+ return W;
+}
+// 1問ごとの貢献度（解答者チームから見た勝率変化）
+function contribRows(m,W){
+ const states=replay(m);
+ return m.events.map((ev,i)=>{
+  const dA=W[i+1]-W[i];
+  const before=ev.type==='t'?null:states[i].t[ev.side][ev.frame-1],after=ev.type==='t'?null:states[i+1].t[ev.side][ev.frame-1];
+  return {i,ev,WA0:W[i],WA1:W[i+1],c:ev.type==='t'?0:(ev.side===0?dA:-dA),before,after};
+ });
+}
+function lineupPlayers(m){const a=[];m.lineup.forEach((t,side)=>t.players.forEach(p=>a.push({...p,side,teamId:t.teamId,teamName:t.name})));return a;}
+function playerStats(m,rows){
+ const map=new Map();
+ for(const p of lineupPlayers(m))map.set(p.teamId+':'+p.id,{key:p.teamId+':'+p.id,name:recName(p),full:p.name,team:p.teamName,side:p.side,frame:p.frame,o:0,x:0,co:0,cx:0,c:0,n:0});
+ for(const r of rows){if(r.ev.type==='t')continue;const k=m.lineup[r.ev.side].teamId+':'+r.ev.pid;const s=map.get(k);if(!s)continue;
+  if(r.ev.type==='o'){s.o++;s.co+=r.c;}else{s.x++;s.cx+=r.c;}s.c+=r.c;s.n++;}
+ return [...map.values()];
+}
+function fmtC(x){const sc=+db.settings.scale||1000;const v=x*sc;const d=sc>=1000?0:1;const t=v.toFixed(d);const z=Math.abs(+t)===0;return (z?'±':(v>0?'+':''))+(z?(0).toFixed(d):t);}
+function cls(x){const sc=+db.settings.scale||1000;const v=Math.round(x*sc*10)/10;return v>0?'pos':v<0?'neg':'zero';}
+const pct=w=>(w*100).toFixed(1)+'%';
+function nextQ(m){if(!m.events.length)return 1;const l=m.events[m.events.length-1];return l.q+(l.adv?1:0);}
+function resultTxt(t){return t==='o'?'正解':t==='x'?'誤答':'スルー';}
+/* ===== 画面 ===== */
+const $main=document.getElementById('main');
+const curMatch=()=>db.matches.find(m=>m.id===db.ui.cur)||null;
+const byId=id=>db.matches.find(m=>m.id===id)||null;
+function go(v){db.ui.view=v;save();render();window.scrollTo(0,0);}
+function render(){
+ document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===db.ui.view));
+ ({team:rTeam,match:rMatch,input:rInput,contrib:rContrib,export:rExport,settings:rSettings}[db.ui.view]||rTeam)();
+}
+document.getElementById('nav').addEventListener('click',e=>{const b=e.target.closest('button');if(b)go(b.dataset.v);});
+
+/* --- チーム登録 --- */
+function teamLabel(t,i){return t.name&&t.name.trim()?t.name:'チーム'+(i+1);}
+function rTeamSeg(){const el=document.getElementById('tseg');if(!el)return;const i=db.ui.teamSel;
+ el.innerHTML=db.teams.map((t,j)=>`<button data-act="tsel" data-i="${j}" class="${j===i?'on':''}">${esc(teamLabel(t,j))}${validateTeam(t).length?'':' ✓'}</button>`).join('');}
+function rTeamStatus(){const el=document.getElementById('tstat');if(!el)return;const t=db.teams[db.ui.teamSel],e=validateTeam(t);
+ let h=e.length?e.map(x=>`<div class="err">・${esc(x)}</div>`).join(''):'<div class="okc">登録条件を満たしています（試合に使用できます）</div>';
+ h+='<div class="msg" style="margin-top:6px">'+[1,2,3,4,5].map(f=>`枠${f}：`+(filled(t).filter(p=>+p.frame===f).map(p=>esc(recName(p))).join('・')||'－')).join('　')+'</div>';
+ el.innerHTML=h;}
+function rTeam(){
+ const i=db.ui.teamSel||0,t=db.teams[i];
+ $main.innerHTML=`<div class="card"><h2>チーム登録（最大10チーム・1チーム5～10人・各枠1～2人）</h2><div class="seg" id="tseg"></div>
+ <div class="row" style="margin-bottom:8px"><label>チーム名 <input data-f="tname" value="${esc(t.name)}" style="width:220px"></label></div>
+ <div class="tbl"><table class="grid"><tr><th>No</th><th>名前</th><th>記録用名前</th><th>枠</th></tr>
+ ${t.players.map((p,k)=>`<tr><td>${k+1}</td><td><input data-f="pname" data-k="${k}" value="${esc(p.name)}"></td><td><input data-f="prec" data-k="${k}" value="${esc(p.rec)}" placeholder="空欄なら名前"></td><td><select data-f="pframe" data-k="${k}"><option value="0">－</option>${[1,2,3,4,5].map(n=>`<option value="${n}" ${+p.frame===n?'selected':''}>${n}</option>`).join('')}</select></td></tr>`).join('')}
+ </table></div><div id="tstat" style="margin-top:8px"></div></div>
+ <div class="card"><h3>一括入力（貼り付け）</h3><div class="msg">1行に1人、「名前,枠,記録用名前」の順（カンマまたはタブ区切り。記録用名前は省略可）。現在の選手欄を置き換えます。</div>
+ <textarea id="tpaste" placeholder="山田太郎,1,山田&#10;佐藤花子,1&#10;鈴木一郎,2"></textarea>
+ <div class="row" style="margin-top:6px"><button class="btn" data-act="tpaste">反映</button><button class="btn danger" data-act="tclear">このチームを消去</button></div></div>`;
+ rTeamSeg();rTeamStatus();
+}
+$main.addEventListener('change',e=>{
+ const el=e.target,f=el.dataset.f;if(!f)return;
+ if(db.ui.view==='team'){const t=db.teams[db.ui.teamSel];
+  if(f==='tname')t.name=el.value;
+  else{const p=t.players[+el.dataset.k];if(f==='pname')p.name=el.value;if(f==='prec')p.rec=el.value;if(f==='pframe')p.frame=+el.value;}
+  save();rTeamSeg();rTeamStatus();return;}
+ if(f==='qtext'||f==='qans'){const m=byId(el.dataset.m);if(!m)return;const q=+el.dataset.q;m.questions[q]=m.questions[q]||{text:'',answer:''};
+  m.questions[q][f==='qtext'?'text':'answer']=el.value;if(!m.questions[q].text&&!m.questions[q].answer)delete m.questions[q];save();
+  if(db.ui.view==='input')rQBar();return;}
+ if(f.startsWith('set_')){applySetting(f.slice(4),el);return;}
+ if(f==='multi'||f==='exsel'){const arr=f==='multi'?db.ui.multi:db.ui.exSel;const id=el.value;const k=arr.indexOf(id);if(el.checked&&k<0)arr.push(id);if(!el.checked&&k>=0)arr.splice(k,1);save();return;}
+ if(f==='csel'){db.ui.cSel=el.value;save();rContrib();return;}
+});
+function parseLines(txt){return txt.split(/\r?\n/).map(l=>l.trim()).filter(l=>l).map(l=>l.includes('\t')?l.split('\t'):csvSplit(l));}
+function csvSplit(line){const out=[];let cur='',q=false;for(let i=0;i<line.length;i++){const c=line[i];if(q){if(c==='"'){if(line[i+1]==='"'){cur+='"';i++;}else q=false;}else cur+=c;}else{if(c==='"')q=true;else if(c===','){out.push(cur);cur='';}else cur+=c;}}out.push(cur);return out.map(s=>s.trim());}
+
+/* --- 試合・問題 --- */
+function snapshotLineup(teamIdx){const t=db.teams[teamIdx];return {teamId:t.id,name:t.name.trim(),players:filled(t).map(p=>({id:p.id,name:p.name.trim(),rec:(p.rec||'').trim(),frame:+p.frame})).sort((a,b)=>a.frame-b.frame)};}
+function rMatch(){
+ const valid=db.teams.map((t,i)=>({t,i})).filter(o=>!validateTeam(o.t).length);
+ const opts=valid.map(o=>`<option value="${o.i}">${esc(o.t.name)}</option>`).join('');
+ let h=`<div class="card"><h2>新しい試合</h2>${valid.length<2?'<div class="err">登録条件を満たすチームが2つ以上必要です（チーム登録で ✓ が付いたチーム）。</div>':''}
+ <div class="row"><label>試合名 <input id="mtitle" placeholder="例：準決勝 第1試合" style="width:220px"></label>
+ <label>チームA <select id="mA">${opts}</select></label><label>チームB <select id="mB">${valid.length>1?valid.map((o,j)=>`<option value="${o.i}" ${j===1?'selected':''}>${esc(o.t.name)}</option>`).join(''):opts}</select></label>
+ <button class="btn" data-act="mnew" ${valid.length<2?'disabled':''}>作成して記録開始</button></div>
+ <div class="msg">作成時点のチーム名簿（選手・枠）を試合に保存します。後から名簿を変えても、記録済みの試合は変わりません。</div></div>`;
+ h+=`<div class="card"><h2>試合一覧</h2>${db.matches.length?'':'<div class="msg">試合がありません。</div>'}<div class="tbl"><table>${db.matches.length?'<tr><th>試合名</th><th>対戦</th><th class="num">記録数</th><th>状況</th><th></th></tr>':''}
+ ${db.matches.slice().reverse().map(m=>{const st=replay(m),last=st[st.length-1];return `<tr><td>${esc(m.title)}<div class="msg">${esc(m.date)}</div></td><td><span class="tagA">${esc(m.lineup[0].name)}</span> vs <span class="tagB">${esc(m.lineup[1].name)}</span></td><td class="num">${m.events.length}</td><td>${last.win>=0?esc(m.lineup[last.win].name)+' 勝利':'進行中'}</td>
+ <td><div class="row"><button class="btn sub" data-act="mopen" data-m="${m.id}">記録入力</button><button class="btn sub" data-act="mq" data-m="${m.id}">問題登録</button>${m.events.length?'':`<button class="btn sub" data-act="mrelin" data-m="${m.id}">名簿を再取得</button>`}<button class="btn danger" data-act="mdel" data-m="${m.id}">削除</button></div></td></tr>`;}).join('')}</table></div></div>`;
+ const m=byId(db.ui.matchSel);
+ if(m)h+=qEditor(m);
+ $main.innerHTML=h;
+}
+function qEditor(m){
+ const maxQ=Math.max(10,nextQ(m),...Object.keys(m.questions).map(Number));
+ let rows='';for(let q=1;q<=maxQ;q++){const o=m.questions[q]||{};rows+=`<tr><td class="num">${q}</td><td><input data-f="qtext" data-m="${m.id}" data-q="${q}" value="${esc(o.text)}" style="width:100%;min-width:200px"></td><td><input data-f="qans" data-m="${m.id}" data-q="${q}" value="${esc(o.answer)}" style="width:100%;min-width:100px"></td></tr>`;}
+ return `<div class="card" id="qed"><h2>問題登録：${esc(m.title)}</h2>
+ <div class="msg">事前登録しなくても記録できます。問題文・正解は記録の途中や試合後に追加できます（記録入力画面からも入力可）。</div>
+ <h3>一括登録（貼り付け・CSVファイル）</h3><div class="msg">1行に1問、「問題文,正解」（カンマまたはタブ区切り）。開始番号から順に登録し、同じ番号の既存データは上書きします。</div>
+ <textarea id="qpaste"></textarea>
+ <div class="row" style="margin-top:6px"><label>開始番号 <input id="qstart" type="number" min="1" value="1" style="width:80px"></label><button class="btn" data-act="qpaste" data-m="${m.id}">貼り付け内容を登録</button>
+ <label class="btn sub">CSVファイルを読み込む<input type="file" id="qfile" accept=".csv,.txt,text/csv,text/plain" class="hide" data-m="${m.id}"></label></div>
+ <h3>問題一覧（入力すると自動保存）</h3><div class="tbl"><table><tr><th class="num">問</th><th>問題文</th><th>正解</th></tr>${rows}</table></div>
+ <div class="row" style="margin-top:6px"><button class="btn sub" data-act="qmore" data-m="${m.id}">10行追加</button></div></div>`;
+}
+$main.addEventListener('change',e=>{
+ if(e.target.id!=='qfile')return;const f=e.target.files[0];if(!f)return;const m=byId(e.target.dataset.m);
+ const rd=new FileReader();rd.onload=()=>{let txt=rd.result;if(txt.charCodeAt(0)===0xFEFF)txt=txt.slice(1);
+  if(txt.includes('\uFFFD')){const r2=new FileReader();r2.onload=()=>{importQ(m,r2.result,+document.getElementById('qstart').value||1);};r2.readAsText(f,'shift_jis');return;}
+  importQ(m,txt,+document.getElementById('qstart').value||1);};rd.readAsText(f,'utf-8');
+});
+function importQ(m,txt,start){const lines=parseLines(txt);let q=start;for(const c of lines){if(!(c[0]||c[1]))continue;m.questions[q]={text:c[0]||'',answer:c[1]||''};q++;}save();alert(`${q-start}問を登録しました`);rMatch();}
+
+/* --- 記録入力 --- */
+function rQBar(){const el=document.getElementById('qbar');const m=curMatch();if(!el||!m)return;const q=nextQ(m),o=m.questions[q]||{};const st=replay(m),ended=st[st.length-1].win>=0;
+ el.innerHTML=`<span class="qno">${ended?'試合終了':'第'+q+'問'}</span><div class="qtext">${o.text?esc(o.text):'<span class="msg">（問題文未登録）</span>'}${db.settings.showAns&&o.answer?`<div><b>正解：</b>${esc(o.answer)}</div>`:''}</div>
+ <button class="btn sub" data-act="qedit">${ended?'問題文を編集':'この問題の問題文・正解を入力'}</button>
+ <div id="qinline" class="hide" style="flex-basis:100%"><div class="row"><input data-f="qtext" data-m="${m.id}" data-q="${ended?Math.max(1,q-1):q}" value="${esc((m.questions[ended?q-1:q]||{}).text)}" placeholder="問題文" style="flex:2 1 240px"><input data-f="qans" data-m="${m.id}" data-q="${ended?Math.max(1,q-1):q}" value="${esc((m.questions[ended?q-1:q]||{}).answer)}" placeholder="正解" style="flex:1 1 120px"></div></div>`;}
+function rInput(){
+ const m=curMatch();
+ if(!m){$main.innerHTML=`<div class="card"><h2>記録入力</h2><div class="msg">試合が選択されていません。「試合・問題」で試合を作成または選択してください。</div></div>`;return;}
+ const st=replay(m),s=st[st.length-1],ended=s.win>=0,T=db.settings.target;
+ let h=`<div class="card"><div class="row" style="justify-content:space-between"><b>${esc(m.title)}</b><span class="msg">表示切替：<label><input type="checkbox" data-f="set_showAns" ${db.settings.showAns?'checked':''}>正解を表示</label></span></div><div class="qbar" id="qbar"></div></div>`;
+ if(ended)h+=`<div class="win">${esc(m.lineup[s.win].name)} の勝利（積 ${prodT(s.t[s.win])}）</div>`;
+ h+='<div class="teams">'+[0,1].map(side=>{
+  const tm=s.t[side],L=m.lineup[side],D=distD(tm.map(f=>f.p),T);
+  return `<div class="team ${side?'B':'A'}"><div class="thead"><span class="tname">${esc(L.name)}</span><span class="tprod">積 <b>${prodT(tm)}</b>　勝利まで最短${ended?'－':D+'問'}</span></div><div class="frames">`+
+  tm.map((f,i)=>{const ps=L.players.filter(p=>p.frame===i+1);const dis=ended||f.r;
+   return `<div class="fr ${f.r?'rest':f.m?'miss':''}"><div class="fno">枠${i+1}</div><div class="fp">${f.p}</div><div class="fst">${f.r?'休み':f.m?'誤答1':''}</div>`+
+   ps.map(p=>`<div class="pl"><div class="pn">${esc(recName(p))}</div><div class="pb"><button class="o" data-act="ans" data-t="o" data-s="${side}" data-p="${p.id}" ${dis?'disabled':''}>○</button><button class="x" data-act="ans" data-t="x" data-s="${side}" data-p="${p.id}" ${dis?'disabled':''}>×</button></div></div>`).join('')+'</div>';}).join('')+'</div></div>';}).join('')+'</div>';
+ h+=`<div class="ctrl"><button class="btn sub" data-act="thru" ${ended?'disabled':''}>スルー</button><button class="btn danger" data-act="undo" ${m.events.length?'':'disabled'}>1つ取り消す</button></div>`;
+ h+=`<div class="card"><h3 style="margin-top:0">記録（${m.events.length}件）</h3><div class="log" id="log">${m.events.map((ev,i)=>logLine(m,ev,st[i],st[i+1])).join('')||'<span class="msg">まだ記録がありません</span>'}</div>
+ <div class="msg" style="margin-top:6px">${db.settings.contWrong?'設定：誤答後も同じ問題を継続（正解・スルーで次の問題へ）':'設定：正解・誤答・スルーのたびに次の問題へ'}</div></div>`;
+ $main.innerHTML=h;rQBar();const lg=document.getElementById('log');if(lg)lg.scrollTop=lg.scrollHeight;
+}
+function logLine(m,ev,s0,s1){
+ if(ev.type==='t')return `<div>Q${ev.q}　スルー</div>`;
+ const f0=s0.t[ev.side][ev.frame-1],f1=s1.t[ev.side][ev.frame-1],tag=ev.side?'tagB':'tagA';
+ let tail=`枠${ev.frame} ${f0.p}→${f1.p}${f1.r?'（休み）':''}`;
+ if(ev.type==='x'){const rel=s0.t[1-ev.side].map((f,i)=>f.r&&!s1.t[1-ev.side][i].r?i+1:0).filter(Boolean);if(rel.length)tail+=`／相手の休み解除（枠${rel.join('・')}）`;}
+ if(s1.win>=0&&s0.win<0)tail+='／勝利';
+ return `<div>Q${ev.q}　<span class="${tag}">${esc(m.lineup[ev.side].name)}</span> ${esc(ev.name)} ${ev.type==='o'?'<b style="color:var(--ok)">○</b>':'<b style="color:var(--ng)">×</b>'}　${tail}</div>`;
+}
+function addEvent(type,side,pid){
+ const m=curMatch();if(!m)return;const st=replay(m);if(st[st.length-1].win>=0)return;
+ const q=nextQ(m);
+ if(type==='t'){m.events.push({q,type:'t',side:-1,pid:null,name:'',frame:0,adv:true});}
+ else{const p=m.lineup[side].players.find(x=>x.id===pid);if(!p)return;if(st[st.length-1].t[side][p.frame-1].r)return;
+  m.events.push({q,type,side,pid,name:recName(p),frame:p.frame,adv:type==='o'||!db.settings.contWrong});}
+ save();rInput();
+}
+/* --- 貢献度 --- */
+function chartSVG(m,W){
+ const n=W.length,w=640,h=180,px=36,py=14,X=i=>px+(n>1?i*(w-px-10)/(n-1):0),Y=v=>py+(1-v)*(h-2*py);
+ const pts=W.map((v,i)=>X(i).toFixed(1)+','+Y(v).toFixed(1)).join(' ');
+ let g=`<svg class="chart" viewBox="0 0 ${w} ${h}" role="img" aria-label="勝率の推移">`;
+ for(const v of [0,0.25,0.5,0.75,1])g+=`<line x1="${px}" x2="${w-10}" y1="${Y(v)}" y2="${Y(v)}" stroke="${v===0.5?'#9aa3ad':'#e3e7ec'}"/><text x="2" y="${Y(v)+4}" font-size="11" fill="#5b6676">${v*100}%</text>`;
+ g+=`<polyline fill="none" stroke="#c0392b" stroke-width="2.5" points="${pts}"/>`;
+ g+=`<text x="${px+4}" y="${py+10}" font-size="12" fill="#c0392b">${esc(m.lineup[0].name)} の推定勝率（50%より下は ${esc(m.lineup[1].name)} 有利）</text></svg>`;
+ return g;
+}
+function modeTxt(){const s=db.settings;return s.mode==='mc'?`精密モード（モンテカルロ ${s.mcN}回／局面、想定正答率 ${s.rate}）`:`近似式モード（a=${s.a}, b=${s.b}, c=${s.c}, d=${s.d}, e=${s.e}）`;}
+function unitTxt(){return +db.settings.scale>=1000?'勝率変化×1000（例：+50 = 勝率+5.0%）':'勝率変化（%ポイント）';}
+async function rContrib(){
+ if(!db.ui.cSel||!byId(db.ui.cSel))db.ui.cSel=(curMatch()||db.matches[db.matches.length-1]||{}).id||null;
+ const m=byId(db.ui.cSel);
+ let h=`<div class="card"><h2>貢献度</h2><div class="msg">貢献度 = その解答で、解答者のチームの推定勝率がどれだけ変化したか（${unitTxt()}）。スルーは0。<br>計算方式：${modeTxt()}</div>
+ <div class="seg" style="margin-top:8px"><button class="${db.ui.cTab!=='multi'?'on':''}" data-act="ctab" data-t="single">1試合</button><button class="${db.ui.cTab==='multi'?'on':''}" data-act="ctab" data-t="multi">複数試合まとめ</button></div>`;
+ if(db.ui.cTab==='multi'){
+  h+=`<div>${db.matches.map(x=>`<label class="chk"><input type="checkbox" data-f="multi" value="${x.id}" ${db.ui.multi.includes(x.id)?'checked':''}>${esc(x.title)}（${esc(x.lineup[0].name)} vs ${esc(x.lineup[1].name)}）</label>`).join('')||'<span class="msg">試合がありません</span>'}</div>
+  <div class="row"><button class="btn" data-act="cmulti">選択した試合で集計</button><button class="btn sub" data-act="call">すべて選択</button><span class="prog" id="prog"></span></div></div><div id="cout"></div>`;
+  $main.innerHTML=h;return;
+ }
+ h+=`<div class="row"><label>試合 <select data-f="csel">${db.matches.map(x=>`<option value="${x.id}" ${m&&x.id===m.id?'selected':''}>${esc(x.title)}</option>`).join('')}</select></label><span class="prog" id="prog"></span></div></div><div id="cout"></div>`;
+ $main.innerHTML=h;
+ if(!m){document.getElementById('cout').innerHTML='<div class="card msg">試合がありません。</div>';return;}
+ const W=await computeW(m,(i,n)=>{const p=document.getElementById('prog');if(p)p.textContent=`計算中… ${i}/${n}`;});
+ if(db.ui.view!=='contrib'||db.ui.cTab==='multi')return;
+ const pg=document.getElementById('prog');if(pg)pg.textContent='';
+ const rows=contribRows(m,W),ps=playerStats(m,rows).sort((a,b)=>b.c-a.c);
+ const tot=[0,1].map(sd=>ps.filter(p=>p.side===sd).reduce((a,p)=>a+p.c,0));
+ let o=`<div class="card"><h3 style="margin-top:0">勝率の推移</h3>${chartSVG(m,W)}</div>`;
+ o+=`<div class="card"><h3 style="margin-top:0">試合全体を通した選手別貢献度</h3><div class="tbl"><table class="nw"><tr><th class="num">順位</th><th>チーム</th><th class="num">枠</th><th>選手</th><th class="num">正解</th><th class="num">誤答</th><th class="num">正解による</th><th class="num">誤答による</th><th class="num">合計</th></tr>
+ ${ps.map((p,i)=>`<tr><td class="num">${i+1}</td><td class="${p.side?'tagB':'tagA'}">${esc(p.team)}</td><td class="num">${p.frame}</td><td>${esc(p.name)}</td><td class="num">${p.o}</td><td class="num">${p.x}</td><td class="num ${cls(p.co)}">${fmtC(p.co)}</td><td class="num ${cls(p.cx)}">${fmtC(p.cx)}</td><td class="num ${cls(p.c)}">${fmtC(p.c)}</td></tr>`).join('')}
+ ${[0,1].map(sd=>`<tr><th colspan="8">${esc(m.lineup[sd].name)} 合計</th><th class="num ${cls(tot[sd])}">${fmtC(tot[sd])}</th></tr>`).join('')}</table></div>
+ <div class="msg">各チーム合計は、そのチームの選手の解答による勝率変化の合計です。相手の誤答で自チームの勝率が上がった分は相手側にマイナスとして計上されるため、「Aチーム合計 − Bチーム合計 = Aチームの勝率の変化（現時点 − 開始時）」が成り立ちます。</div></div>`;
+ o+=`<div class="card"><h3 style="margin-top:0">1問ごとの貢献度</h3><div class="tbl"><table class="nw"><tr><th class="num">問</th><th>問題文</th><th>正解</th><th>結果</th><th>選手</th><th>枠の変化</th><th class="num">${esc(m.lineup[0].name)}勝率</th><th class="num">貢献度</th></tr>
+ ${rows.map(r=>{const ev=r.ev,q=m.questions[ev.q]||{};return `<tr><td class="num">${ev.q}</td><td class="qcell">${esc(q.text)}</td><td class="small">${esc(q.answer)}</td><td>${resultTxt(ev.type)}</td><td>${ev.type==='t'?'－':`<span class="${ev.side?'tagB':'tagA'}">${esc(m.lineup[ev.side].name)}</span> ${esc(ev.name)}`}</td><td class="small">${ev.type==='t'?'－':`枠${ev.frame} ${r.before.p}→${r.after.p}${r.after.r?' 休み':''}`}</td><td class="num small">${pct(r.WA0)}→${pct(r.WA1)}</td><td class="num ${ev.type==='t'?'zero':cls(r.c)}">${ev.type==='t'?'－':fmtC(r.c)}</td></tr>`;}).join('')||'<tr><td colspan="8" class="msg">記録がありません</td></tr>'}</table></div></div>`;
+ document.getElementById('cout').innerHTML=o;
+}
+async function multiStats(ids,progress){
+ const map=new Map();
+ for(const [k,id] of ids.entries()){const m=byId(id);if(!m)continue;
+  const W=await computeW(m,progress?(i,n)=>progress(`試合${k+1}/${ids.length}：${i}/${n}`):null);
+  for(const p of playerStats(m,contribRows(m,W))){
+   const s=map.get(p.key)||{key:p.key,name:p.name,full:p.full,team:p.team,games:0,o:0,x:0,co:0,cx:0,c:0,n:0};
+   s.name=p.name;s.team=p.team;s.games++;s.o+=p.o;s.x+=p.x;s.co+=p.co;s.cx+=p.cx;s.c+=p.c;s.n+=p.n;map.set(p.key,s);}
+ }
+ return [...map.values()].sort((a,b)=>b.c-a.c);
+}
+async function runMulti(){
+ const ids=db.matches.map(m=>m.id).filter(id=>db.ui.multi.includes(id));
+ if(!ids.length){alert('試合を選択してください');return;}
+ const pg=document.getElementById('prog');
+ const ps=await multiStats(ids,t=>{if(pg)pg.textContent='計算中… '+t;});
+ if(pg)pg.textContent='';
+ document.getElementById('cout').innerHTML=`<div class="card"><h3 style="margin-top:0">${ids.length}試合の選手別貢献度</h3><div class="tbl"><table class="nw"><tr><th class="num">順位</th><th>チーム</th><th>選手</th><th class="num">出場</th><th class="num">正解</th><th class="num">誤答</th><th class="num">正解による</th><th class="num">誤答による</th><th class="num">合計</th><th class="num">1試合平均</th><th class="num">1解答平均</th></tr>
+ ${ps.map((p,i)=>`<tr><td class="num">${i+1}</td><td>${esc(p.team)}</td><td>${esc(p.name)}</td><td class="num">${p.games}</td><td class="num">${p.o}</td><td class="num">${p.x}</td><td class="num ${cls(p.co)}">${fmtC(p.co)}</td><td class="num ${cls(p.cx)}">${fmtC(p.cx)}</td><td class="num ${cls(p.c)}">${fmtC(p.c)}</td><td class="num ${cls(p.c/p.games)}">${fmtC(p.c/p.games)}</td><td class="num">${p.n?fmtC(p.c/p.n):'－'}</td></tr>`).join('')}</table></div>
+ <div class="msg">同じ選手の判定はチーム登録時の選手IDで行います（名前を変更しても同一選手として集計）。</div></div>`;
+}
+
+/* --- 出力 --- */
+function rExport(){
+ if(!db.ui.exSel.length&&db.matches.length)db.ui.exSel=db.matches.map(m=>m.id);
+ $main.innerHTML=`<div class="card"><h2>出力</h2><div class="msg">出力する試合を選択してください（複数選択可）。貢献度は現在の計算方式（${modeTxt()}）で計算します。</div>
+ ${db.matches.map(x=>`<label class="chk"><input type="checkbox" data-f="exsel" value="${x.id}" ${db.ui.exSel.includes(x.id)?'checked':''}>${esc(x.title)}（${esc(x.lineup[0].name)} vs ${esc(x.lineup[1].name)}）</label>`).join('')||'<div class="msg">試合がありません</div>'}
+ <div class="row" style="margin-top:8px"><button class="btn" data-act="exlog">① 問題ログ CSV</button><button class="btn" data-act="exper">② 個人成績 CSV</button><button class="btn" data-act="exxlsx">③ Excel（2シート）</button><span class="prog" id="prog"></span></div>
+ <div class="msg" style="margin-top:6px">CSVはExcelで文字化けしないようBOM付きUTF-8で出力します。iPhone/iPadでは共有シートが開くので「"ファイル"に保存」などを選んでください。</div></div>
+ <div class="card"><h2>バックアップ</h2><div class="msg">データはこの端末のブラウザ内に保存されています。ブラウザのデータ削除で消えるため、定期的なバックアップを推奨します。</div>
+ <div class="row" style="margin-top:6px"><button class="btn sub" data-act="bk">バックアップを保存（JSON）</button><label class="btn sub">バックアップから復元<input type="file" id="bkfile" accept=".json,application/json" class="hide"></label></div></div>`;
+}
+async function exportData(){
+ const ids=db.matches.map(m=>m.id).filter(id=>db.ui.exSel.includes(id));
+ if(!ids.length){alert('試合を選択してください');return null;}
+ const pg=document.getElementById('prog');const log=[];
+ const H1=['試合名','日付','問','問題文','正解','結果','チーム','枠','選手','正解者','誤答者','枠ポイント(前)','枠ポイント(後)','勝率基準チーム','基準チーム推定勝率(前)','基準チーム推定勝率(後)','貢献度'];
+ for(const [k,id] of ids.entries()){const m=byId(id);
+  const W=await computeW(m,(i,n)=>{if(pg)pg.textContent=`計算中… 試合${k+1}/${ids.length}：${i}/${n}`;});
+  for(const r of contribRows(m,W)){const ev=r.ev,q=m.questions[ev.q]||{},t=ev.type;
+   log.push([m.title,m.date,ev.q,q.text||'',q.answer||'',resultTxt(t),t==='t'?'':m.lineup[ev.side].name,t==='t'?'':ev.frame,t==='t'?'':ev.name,t==='o'?ev.name:'',t==='x'?ev.name:'',t==='t'?'':r.before.p,t==='t'?'':r.after.p,m.lineup[0].name,+r.WA0.toFixed(4),+r.WA1.toFixed(4),t==='t'?0:+(r.c*(+db.settings.scale)).toFixed(1)]);}
+ }
+ const ps=await multiStats(ids,null);if(pg)pg.textContent='';
+ const H2=['順位','チーム','選手','記録用名前','出場試合数','正解数','誤答数','正解による貢献度','誤答による貢献度','貢献度合計','1試合平均'];
+ const sc=+db.settings.scale,r1=x=>+(x*sc).toFixed(1);
+ const per=ps.map((p,i)=>[i+1,p.team,p.full,p.name,p.games,p.o,p.x,r1(p.co),r1(p.cx),r1(p.c),r1(p.c/p.games)]);
+ const note=`貢献度の単位：${unitTxt()}／計算方式：${modeTxt()}`;
+ return {log:[H1,...log],per:[H2,...per],note,name:ids.length===1?byId(ids[0]).title:`${ids.length}試合`};
+}
+function toCSV(rows){return '\uFEFF'+rows.map(r=>r.map(v=>{const s=String(v??'');return /[",\r\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}).join(',')).join('\r\n');}
+const safeName=s=>String(s).replace(/[\\/:*?"<>|]/g,'_').trim()||'output';
+async function download(name,blob){
+ const isIOS=/iPhone|iPad|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+ if(isIOS&&navigator.canShare){try{const file=new File([blob],name,{type:blob.type});if(navigator.canShare({files:[file]})){await navigator.share({files:[file]});return;}}catch(e){if(e&&e.name==='AbortError')return;}}
+ const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1500);
+}
+/* --- Excel(xlsx) 書き出し（外部ライブラリなし） --- */
+const CRC=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0;}return t;})();
+function crc32(u){let c=0xFFFFFFFF;for(let i=0;i<u.length;i++)c=CRC[(c^u[i])&255]^(c>>>8);return (c^0xFFFFFFFF)>>>0;}
+function zipStore(files){
+ const enc=new TextEncoder(),parts=[],cen=[];let off=0;
+ for(const f of files){const nm=enc.encode(f.name),d=typeof f.data==='string'?enc.encode(f.data):f.data,c=crc32(d);
+  const h=new DataView(new ArrayBuffer(30));h.setUint32(0,0x04034b50,true);h.setUint16(4,20,true);h.setUint16(6,0x0800,true);h.setUint16(8,0,true);h.setUint16(10,0,true);h.setUint16(12,0x21,true);h.setUint32(14,c,true);h.setUint32(18,d.length,true);h.setUint32(22,d.length,true);h.setUint16(26,nm.length,true);h.setUint16(28,0,true);
+  parts.push(new Uint8Array(h.buffer),nm,d);
+  const C=new DataView(new ArrayBuffer(46));C.setUint32(0,0x02014b50,true);C.setUint16(4,20,true);C.setUint16(6,20,true);C.setUint16(8,0x0800,true);C.setUint16(10,0,true);C.setUint16(12,0,true);C.setUint16(14,0x21,true);C.setUint32(16,c,true);C.setUint32(20,d.length,true);C.setUint32(24,d.length,true);C.setUint16(28,nm.length,true);C.setUint32(42,off,true);
+  cen.push(new Uint8Array(C.buffer),nm);off+=30+nm.length+d.length;}
+ const cs=cen.reduce((a,b)=>a+b.length,0),E=new DataView(new ArrayBuffer(22));E.setUint32(0,0x06054b50,true);E.setUint16(8,files.length,true);E.setUint16(10,files.length,true);E.setUint32(12,cs,true);E.setUint32(16,off,true);
+ return new Blob([...parts,...cen,new Uint8Array(E.buffer)],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+}
+const xesc=s=>String(s).replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g,'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const colL=i=>{let s='';i++;while(i){const r=(i-1)%26;s=String.fromCharCode(65+r)+s;i=Math.floor((i-1)/26);}return s;};
+function sheetXML(rows){
+ const w=rows[0].map((_,j)=>Math.min(60,Math.max(6,...rows.map(r=>{const s=String(r[j]??'');let n=0;for(const ch of s)n+=ch.charCodeAt(0)>255?2:1;return n;}))+2));
+ let x='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols>'+w.map((v,j)=>`<col min="${j+1}" max="${j+1}" width="${v}" customWidth="1"/>`).join('')+'</cols><sheetData>';
+ rows.forEach((r,i)=>{x+=`<row r="${i+1}">`;r.forEach((v,j)=>{const ref=colL(j)+(i+1);if(v===''||v==null)return;
+  if(typeof v==='number'&&isFinite(v))x+=`<c r="${ref}"${i===0?' s="1"':''}><v>${v}</v></c>`;else x+=`<c r="${ref}" t="inlineStr"${i===0?' s="1"':''}><is><t xml:space="preserve">${xesc(v)}</t></is></c>`;});x+='</row>';});
+ return x+'</sheetData></worksheet>';
+}
+function makeXlsx(sheets){
+ const files=[
+ {name:'[Content_Types].xml',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'+sheets.map((s,i)=>`<Override PartName="/xl/worksheets/sheet${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')+'</Types>'},
+ {name:'_rels/.rels',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'},
+ {name:'xl/workbook.xml',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>'+sheets.map((s,i)=>`<sheet name="${xesc(s.name)}" sheetId="${i+1}" r:id="rId${i+1}"/>`).join('')+'</sheets></workbook>'},
+ {name:'xl/_rels/workbook.xml.rels',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'+sheets.map((s,i)=>`<Relationship Id="rId${i+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i+1}.xml"/>`).join('')+`<Relationship Id="rId${sheets.length+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`},
+ {name:'xl/styles.xml',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Yu Gothic"/></font><font><b/><sz val="11"/><name val="Yu Gothic"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFDDE5EE"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>'}];
+ sheets.forEach((s,i)=>files.push({name:`xl/worksheets/sheet${i+1}.xml`,data:sheetXML(s.rows)}));
+ return zipStore(files);
+}
+
+/* --- 設定 --- */
+function rSettings(){
+ const s=db.settings;
+ $main.innerHTML=`<div class="card"><h2>貢献度の計算方式</h2>
+ <label class="chk"><input type="radio" name="mode" data-f="set_mode" value="approx" ${s.mode!=='mc'?'checked':''}>近似式モード（推奨・即時計算）</label>
+ <label class="chk"><input type="radio" name="mode" data-f="set_mode" value="mc" ${s.mode==='mc'?'checked':''}>精密モード（モンテカルロ・計算に数秒）</label>
+ <div class="msg">近似式：V = a·ln(P<sub>A</sub>/P<sub>B</sub>) + b·(D<sub>B</sub>−D<sub>A</sub>) + c·(A<sub>A</sub>−A<sub>B</sub>) + d·(M<sub>B</sub>−M<sub>A</sub>) − e·(S<sub>A</sub>−S<sub>B</sub>)、勝率 W = 1/(1+e<sup>−V</sup>)。貢献度 = W(解答後) − W(解答前)（解答者チームから見た値）。</div>
+ <h3>想定正答率（係数の推定値の選択／精密モードの前提）</h3>
+ <div class="row"><select data-f="set_preset">${Object.keys(PRESETS).map(k=>`<option value="${k}" ${s.preset===k?'selected':''}>${Math.round(k*100)}%</option>`).join('')}<option value="custom" ${s.preset==='custom'?'selected':''}>手動設定</option></select><span class="msg">選ぶと係数a～eと精密モードの正答率がその値に切り替わります。</span></div>
+ <h3>係数</h3><div class="tbl"><table><tr><th>係数</th><th>値</th><th>意味</th></tr>
+ ${[['a','得点の積の比（対数）＝今の得点差'],['b','勝利までの最少正解数の差＝ゴールまでの距離'],['c','休みでない枠の数の差＝解答できる人数'],['d','誤答1回済み（休み直前）の枠の数の差＝休みになるリスク'],['e','各枠の得点の偏り（対数の分散）の差＝一部の枠への集中の危うさ']].map(([k,t])=>`<tr><td><b>${k}</b></td><td><input type="number" step="0.001" data-f="set_${k}" value="${s[k]}" style="width:110px"></td><td class="small">${t}</td></tr>`).join('')}</table></div>
+ <div class="row" style="margin-top:6px"><button class="btn sub" data-act="setdef">既定値（正答率70%）に戻す</button></div>
+ <h3>精密モード</h3><div class="row"><label>1局面あたりの試行回数 <input type="number" min="100" max="20000" step="100" data-f="set_mcN" value="${s.mcN}" style="width:110px"></label><label>正答率 <input type="number" min="0.05" max="0.99" step="0.01" data-f="set_rate" value="${s.rate}" style="width:90px"></label></div>
+ <div class="msg">試行回数2000回で勝率の標準誤差は最大約1.1%です。全局面で同じ乱数列を使うため、貢献度（差分）の誤差はこれより小さくなります。</div></div>
+ <div class="card"><h2>表示・ルール</h2>
+ <div class="row"><label>貢献度の表示単位 <select data-f="set_scale"><option value="1000" ${+s.scale===1000?'selected':''}>勝率変化×1000（整数）</option><option value="100" ${+s.scale===100?'selected':''}>%ポイント（小数1桁）</option></select></label></div>
+ <div class="row" style="margin-top:6px"><label>勝利条件：積が <input type="number" min="1" data-f="set_target" value="${s.target}" style="width:90px"> を超えたら勝ち</label></div>
+ <label class="chk"><input type="checkbox" data-f="set_contWrong" ${s.contWrong?'checked':''}>誤答後も同じ問題を継続する（オフ：誤答でも次の問題へ進む）</label>
+ <div class="msg">勝利条件を変えると、記録済みの試合もすべて新しい条件で再計算されます。</div></div>
+ <div class="card"><h2>データ管理</h2><div class="row"><button class="btn danger" data-act="wipe">すべてのデータを削除</button></div></div>`;
+}
+function applySetting(k,el){
+ const s=db.settings;
+ if(k==='mode'){s.mode=el.value;}
+ else if(k==='preset'){s.preset=el.value;if(PRESETS[el.value]){Object.assign(s,PRESETS[el.value]);s.rate=+el.value;}}
+ else if('abcde'.includes(k)&&k.length===1){const v=parseFloat(el.value);if(isFinite(v)){s[k]=v;s.preset='custom';}}
+ else if(k==='mcN'){const v=parseInt(el.value,10);s.mcN=isFinite(v)?Math.max(100,Math.min(20000,v)):2000;}
+ else if(k==='rate'){const v=parseFloat(el.value);s.rate=isFinite(v)?Math.max(0.05,Math.min(0.99,v)):0.7;}
+ else if(k==='target'){const v=parseInt(el.value,10);s.target=isFinite(v)&&v>0?v:200;}
+ else if(k==='scale'){s.scale=+el.value;}
+ else if(k==='contWrong'||k==='showAns'){s[k]=el.checked;}
+ save();render();
+}
+
+/* --- 操作 --- */
+$main.addEventListener('click',async e=>{
+ const b=e.target.closest('[data-act]');if(!b)return;const a=b.dataset.act;
+ if(a==='tsel'){db.ui.teamSel=+b.dataset.i;save();rTeam();}
+ else if(a==='tpaste'){const t=db.teams[db.ui.teamSel],lines=parseLines(document.getElementById('tpaste').value);if(!lines.length)return;if(lines.length>10){alert('10人までです');return;}
+  t.players=emptyPlayers();lines.forEach((c,i)=>{const p=t.players[i];p.name=c[0]||'';p.frame=Math.min(5,Math.max(0,parseInt(c[1],10)||0));p.rec=c[2]||'';});save();rTeam();}
+ else if(a==='tclear'){if(confirm('このチームの登録内容を消去しますか？（記録済みの試合には影響しません）')){const t=db.teams[db.ui.teamSel];t.name='';t.players=emptyPlayers();save();rTeam();}}
+ else if(a==='mnew'){const A=+document.getElementById('mA').value,B=+document.getElementById('mB').value;if(A===B){alert('異なる2チームを選んでください');return;}
+  const d=new Date(),ds=`${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+  const title=document.getElementById('mtitle').value.trim()||`${db.teams[A].name} vs ${db.teams[B].name}`;
+  const m={id:uid(),title,date:ds,lineup:[snapshotLineup(A),snapshotLineup(B)],questions:{},events:[]};db.matches.push(m);db.ui.cur=m.id;db.ui.matchSel=m.id;go('input');}
+ else if(a==='mopen'){db.ui.cur=b.dataset.m;go('input');}
+ else if(a==='mq'){db.ui.matchSel=b.dataset.m;save();rMatch();const q=document.getElementById('qed');if(q)q.scrollIntoView();}
+ else if(a==='mrelin'){const m=byId(b.dataset.m);const ia=db.teams.findIndex(t=>t.id===m.lineup[0].teamId),ib=db.teams.findIndex(t=>t.id===m.lineup[1].teamId);
+  if(ia<0||ib<0||validateTeam(db.teams[ia]).length||validateTeam(db.teams[ib]).length){alert('現在のチーム名簿が登録条件を満たしていません');return;}m.lineup=[snapshotLineup(ia),snapshotLineup(ib)];save();alert('名簿を再取得しました');rMatch();}
+ else if(a==='mdel'){const m=byId(b.dataset.m);if(confirm(`「${m.title}」を削除しますか？記録も消えます。`)){db.matches=db.matches.filter(x=>x!==m);if(db.ui.cur===m.id)db.ui.cur=null;if(db.ui.matchSel===m.id)db.ui.matchSel=null;save();rMatch();}}
+ else if(a==='qpaste'){importQ(byId(b.dataset.m),document.getElementById('qpaste').value,+document.getElementById('qstart').value||1);}
+ else if(a==='qmore'){const m=byId(b.dataset.m);const mx=Math.max(10,nextQ(m),...Object.keys(m.questions).map(Number));m.questions[mx+10]={text:'',answer:''};save();rMatch();}
+ else if(a==='qedit'){document.getElementById('qinline').classList.toggle('hide');}
+ else if(a==='ans'){addEvent(b.dataset.t,+b.dataset.s,b.dataset.p);}
+ else if(a==='thru'){addEvent('t');}
+ else if(a==='undo'){const m=curMatch();if(m&&m.events.length){m.events.pop();save();rInput();}}
+ else if(a==='ctab'){db.ui.cTab=b.dataset.t;save();rContrib();}
+ else if(a==='call'){db.ui.multi=db.matches.map(m=>m.id);save();rContrib();}
+ else if(a==='cmulti'){runMulti();}
+ else if(a==='exlog'||a==='exper'||a==='exxlsx'){const d=await exportData();if(!d)return;const base=safeName('10by10by10mini_'+d.name);
+  if(a==='exlog')download(base+'_問題ログ.csv',new Blob([toCSV(d.log)],{type:'text/csv'}));
+  else if(a==='exper')download(base+'_個人成績.csv',new Blob([toCSV([...d.per,[],[d.note]])],{type:'text/csv'}));
+  else download(base+'.xlsx',makeXlsx([{name:'問題ログ',rows:d.log},{name:'個人成績',rows:[...d.per,[],[d.note]]}]));}
+ else if(a==='bk'){const d=new Date();download(`10by10by10mini_backup_${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}.json`,new Blob([JSON.stringify(db)],{type:'application/json'}));}
+ else if(a==='setdef'){Object.assign(db.settings,PRESETS['0.7']);db.settings.preset='0.7';db.settings.rate=0.7;save();rSettings();}
+ else if(a==='wipe'){if(confirm('チーム・試合・設定をすべて削除します。元に戻せません。よろしいですか？')&&confirm('本当に削除しますか？')){localStorage.removeItem(KEY);db=defaultDB();save();render();}}
+});
+$main.addEventListener('change',e=>{if(e.target.id!=='bkfile')return;const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const d=normalize(JSON.parse(r.result));if(!confirm('現在のデータをバックアップの内容で置き換えます。よろしいですか？'))return;db=d;save();render();alert('復元しました');}catch(err){alert('読み込めませんでした：'+err.message);}};r.readAsText(f);});
+render();
+</script>
+</body></html>
