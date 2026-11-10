@@ -255,23 +255,54 @@ async function computeW(m,progress){
 }
 // 1問ごとの貢献度（解答者チームから見た勝率変化）
 function contribRows(m,W){
- const states=replay(m);
+ const states=replay(m),HS=hindsight(m);
  return m.events.map((ev,i)=>{
   const dA=W[i+1]-W[i];
   const before=ev.type==='t'?null:states[i].t[ev.side][ev.frame-1],after=ev.type==='t'?null:states[i+1].t[ev.side][ev.frame-1];
-  return {i,ev,WA0:W[i],WA1:W[i+1],c:ev.type==='t'?0:(ev.side===0?dA:-dA),before,after};
+  return {i,ev,WA0:W[i],WA1:W[i+1],c:ev.type==='t'?0:(ev.side===0?dA:-dA),h:HS?HS.h[i]:null,before,after};
  });
+}
+/* ===== 事後貢献度（試合終了後のみ） =====
+ 試合終了時の各チームの到達度 S = min(ln P_end, ln T)/ln T を、1問ごとに分解する。
+ ・正解（枠 j→j+1）：その1点が試合終了まで残った場合 +ln((j+1)/j)、後の誤答で消えた場合 0
+ ・誤答：試合終了時の枠の値が、この誤答がなかった場合にどれだけ違ったか（残りの記録は固定）
+   この誤答の後、同じ枠で正解が r 回（次の誤答なし）なら  −[ln(p前 + r) − ln(1 + r)]
+   同じ枠で後にもう一度誤答があった場合は 0（その時点で点は失われていたとみなす）
+ ・単位：ln T で割る（勝者で ln P_end > ln T の場合は ln P_end で割り、残った正解の合計をちょうど1にする）
+ ・相手の休み解除による影響は含めない */
+function hindsight(m){
+ const st=replay(m),last=st[st.length-1];if(last.win<0)return null;
+ const T=db.settings.target,LT=Math.log(T),h=m.events.map(()=>0),raw=m.events.map(()=>0);
+ const alive=[0,1].map(()=>[[],[],[],[],[]]),pend=[0,1].map(()=>[null,null,null,null,null]);
+ m.events.forEach((ev,i)=>{
+  if(ev.type==='t')return;const f=ev.frame-1,pb=st[i].t[ev.side][f].p;
+  if(ev.type==='o'){raw[i]=Math.log((pb+1)/pb);alive[ev.side][f].push(i);const pe=pend[ev.side][f];if(pe)pe.r++;}
+  else{alive[ev.side][f]=[];pend[ev.side][f]={i,pb,r:0};}
+ });
+ const prog=[0,0];
+ for(const sd of [0,1]){
+  const Lend=last.t[sd].reduce((a,f)=>a+Math.log(f.p),0);
+  const den=(last.win===sd&&Lend>LT)?Lend:LT;prog[sd]=Math.min(Lend/LT,1);
+  for(let f=0;f<5;f++){
+   for(const i of alive[sd][f])h[i]=raw[i]/den;
+   const pe=pend[sd][f];if(pe)h[pe.i]=-(Math.log(pe.pb+pe.r)-Math.log(1+pe.r))/den;
+  }
+ }
+ return {h,prog};
 }
 function lineupPlayers(m){const a=[];m.lineup.forEach((t,side)=>t.players.forEach(p=>a.push({...p,side,teamId:t.teamId,teamName:t.name})));return a;}
 function playerStats(m,rows){
  const map=new Map();
- for(const p of lineupPlayers(m))map.set(p.teamId+':'+p.id,{key:p.teamId+':'+p.id,name:recName(p),full:p.name,team:p.teamName,side:p.side,frame:p.frame,o:0,x:0,co:0,cx:0,c:0,n:0});
+ for(const p of lineupPlayers(m))map.set(p.teamId+':'+p.id,{key:p.teamId+':'+p.id,name:recName(p),full:p.name,team:p.teamName,side:p.side,frame:p.frame,o:0,x:0,co:0,cx:0,c:0,n:0,ho:0,hx:0,h:0,fin:!!hindsight(m)});
  for(const r of rows){if(r.ev.type==='t')continue;const k=m.lineup[r.ev.side].teamId+':'+r.ev.pid;const s=map.get(k);if(!s)continue;
-  if(r.ev.type==='o'){s.o++;s.co+=r.c;}else{s.x++;s.cx+=r.c;}s.c+=r.c;s.n++;}
+  if(r.ev.type==='o'){s.o++;s.co+=r.c;}else{s.x++;s.cx+=r.c;}s.c+=r.c;s.n++;
+  if(r.h!==null){if(r.ev.type==='o')s.ho+=r.h;else s.hx+=r.h;s.h+=r.h;}}
  return [...map.values()];
 }
 function fmtC(x){const sc=+db.settings.scale||1000;const v=x*sc;const d=sc>=1000?0:1;const t=v.toFixed(d);const z=Math.abs(+t)===0;return (z?'±':(v>0?'+':''))+(z?(0).toFixed(d):t);}
 function cls(x){const sc=+db.settings.scale||1000;const v=Math.round(x*sc*10)/10;return v>0?'pos':v<0?'neg':'zero';}
+function fmtH(x){if(x===null||x===undefined)return '－';const t=(x*100).toFixed(1);return (+t===0?'±0.0':(x>0?'+':'')+t);}
+const hcls=x=>{const v=Math.round(x*1000);return v>0?'pos':v<0?'neg':'zero';};
 const pct=w=>(w*100).toFixed(1)+'%';
 function nextQ(m){if(!m.events.length)return 1;const l=m.events[m.events.length-1];return l.q+(l.adv?1:0);}
 function resultTxt(t){return t==='o'?'正解':t==='x'?'誤答':'スルー';}
@@ -418,6 +449,9 @@ function addEvent(type,side,pid){
 }
 
 /* --- 得点状況の画像出力（Canvas） --- */
+// 画像では入力画面の並び設定に関係なく、両チームとも枠1を内側（中央寄り）に配置する
+// 左のチームA：枠5→枠1（右端が枠1）、右のチームB：枠1→枠5（左端が枠1）
+const imgOrder=side=>side===0?[4,3,2,1,0]:[0,1,2,3,4];
 const FONT='"Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic UI","Meiryo",sans-serif';
 function rr(ctx,x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);ctx.lineTo(x+r,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-r);ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath();}
 function ftext(ctx,t,x,y,maxW,size,weight,align){t=String(t??'');let s=size;do{ctx.font=`${weight||400} ${s}px ${FONT}`;if(ctx.measureText(t).width<=maxW)break;s--;}while(s>8);ctx.textAlign=align||'left';ctx.fillText(t,x,y);}
@@ -440,7 +474,7 @@ function drawBoard(m){
   x.fillStyle='#1b2430';ftext(x,String(prodT(tm)),px+90,py+165,300,110,800);
   x.fillStyle='#5b6676';ftext(x,ended?'':`勝利まで最短 ${distD(tm.map(f=>f.p),T)}問`,px+pw-30,py+175,320,30,600,'right');
   const gw=(pw-60-4*12)/5,gy=py+250,gh=ph-280;
-  frameOrder(m.order[side]).forEach((i,k)=>{
+  imgOrder(side).forEach((i,k)=>{
    const f=tm[i],gx=px+30+k*(gw+12),rc=!ended&&rf[i];
    x.fillStyle=f.r?'#e3e6ea':rc?'#fde7ef':f.m?'#fff3dc':'#fafbfc';rr(x,gx,gy,gw,gh,14);x.fill();
    x.lineWidth=rc?5:2;x.strokeStyle=f.r?'#9aa3ad':rc?'#d81b60':f.m?'#f0c36d':'#d6dce4';x.stroke();
@@ -481,7 +515,8 @@ function matchChecklist(field,arr,allAct){
 async function rContrib(){
  if(!db.ui.cSel||!byId(db.ui.cSel))db.ui.cSel=(curMatch()||db.matches[db.matches.length-1]||{}).id||null;
  const m=byId(db.ui.cSel);
- let h=`<div class="card"><h2>貢献度</h2><div class="msg">貢献度 = その解答で、解答者のチームの推定勝率がどれだけ変化したか（${unitTxt()}）。スルーは0。<br>計算方式：${modeTxt()}</div>
+ let h=`<div class="card"><h2>貢献度</h2><div class="msg"><b>随時貢献度</b> = その解答で、解答者のチームの推定勝率がどれだけ変化したか（${unitTxt()}）。その時点の局面だけで決まり、後の展開に影響されません。計算方式：${modeTxt()}<br>
+ <b>事後貢献度（参考）</b> = 試合終了後、最終的な到達度（勝利条件までの進み具合、勝者は100）を1問ごとに分解した値。最後まで残った正解だけがプラス、後で消えた正解は0、誤答は「その誤答がなければ最終的に残っていた点」の分だけマイナス。結果論を含むため、試合の振り返り用です。終了した試合だけ算出します。</div>
  <div class="seg" style="margin-top:8px"><button class="${db.ui.cTab!=='multi'?'on':''}" data-act="ctab" data-t="single">1試合</button><button class="${db.ui.cTab==='multi'?'on':''}" data-act="ctab" data-t="multi">複数試合まとめ</button></div>`;
  if(db.ui.cTab==='multi'){
   h+=`${matchChecklist('multi',db.ui.multi,'tallc')}
@@ -496,13 +531,16 @@ async function rContrib(){
  const pg=document.getElementById('prog');if(pg)pg.textContent='';
  const rows=contribRows(m,W),ps=playerStats(m,rows).sort((a,b)=>b.c-a.c);
  const tot=[0,1].map(sd=>ps.filter(p=>p.side===sd).reduce((a,p)=>a+p.c,0));
+ const HS=hindsight(m),fin=!!HS,htot=[0,1].map(sd=>ps.filter(p=>p.side===sd).reduce((a,p)=>a+p.h,0));
  let o=`<div class="card"><h3 style="margin-top:0">勝率の推移（${esc(mLabel(m))}）</h3>${chartSVG(m,W)}</div>`;
- o+=`<div class="card"><h3 style="margin-top:0">試合全体を通した選手別貢献度</h3><div class="tbl"><table class="nw"><tr><th class="num">順位</th><th>チーム</th><th class="num">枠</th><th>選手</th><th class="num">正解</th><th class="num">誤答</th><th class="num">正解による</th><th class="num">誤答による</th><th class="num">合計</th></tr>
- ${ps.map((p,i)=>`<tr><td class="num">${i+1}</td><td class="${p.side?'tagB':'tagA'}">${esc(p.team)}</td><td class="num">${p.frame}</td><td>${esc(p.name)}</td><td class="num">${p.o}</td><td class="num">${p.x}</td><td class="num ${cls(p.co)}">${fmtC(p.co)}</td><td class="num ${cls(p.cx)}">${fmtC(p.cx)}</td><td class="num ${cls(p.c)}">${fmtC(p.c)}</td></tr>`).join('')}
- ${[0,1].map(sd=>`<tr><th colspan="8">${esc(m.lineup[sd].name)} 合計</th><th class="num ${cls(tot[sd])}">${fmtC(tot[sd])}</th></tr>`).join('')}</table></div>
+ o+=`<div class="card"><h3 style="margin-top:0">試合全体を通した選手別貢献度</h3><div class="tbl"><table class="nw"><tr><th class="num">順位</th><th>チーム</th><th class="num">枠</th><th>選手</th><th class="num">正解</th><th class="num">誤答</th><th class="num">随時：正解</th><th class="num">随時：誤答</th><th class="num">随時合計</th><th class="num">事後：正解</th><th class="num">事後：誤答</th><th class="num">事後合計</th></tr>
+ ${ps.map((p,i)=>`<tr><td class="num">${i+1}</td><td class="${p.side?'tagB':'tagA'}">${esc(p.team)}</td><td class="num">${p.frame}</td><td>${esc(p.name)}</td><td class="num">${p.o}</td><td class="num">${p.x}</td><td class="num ${cls(p.co)}">${fmtC(p.co)}</td><td class="num ${cls(p.cx)}">${fmtC(p.cx)}</td><td class="num ${cls(p.c)}">${fmtC(p.c)}</td><td class="num">${fin?fmtH(p.ho):'－'}</td><td class="num">${fin?fmtH(p.hx):'－'}</td><td class="num ${fin?hcls(p.h):''}">${fin?fmtH(p.h):'－'}</td></tr>`).join('')}
+ ${[0,1].map(sd=>`<tr><th colspan="8">${esc(m.lineup[sd].name)} 合計</th><th class="num ${cls(tot[sd])}">${fmtC(tot[sd])}</th><th colspan="2" class="num small">${fin?'最終到達度 '+(HS.prog[sd]*100).toFixed(1):''}</th><th class="num">${fin?fmtH(htot[sd]):'－'}</th></tr>`).join('')}</table></div>
+ ${fin?'':'<div class="msg">事後貢献度は試合終了後に表示されます。</div>'}
+ <div class="msg">事後貢献度の単位：最終到達度（勝利条件に対する進み具合）を100とした点数。勝者の「事後：正解」の合計はちょうど100になります。</div>
  <div class="msg">各チーム合計は、そのチームの選手の解答による勝率変化の合計です。相手の誤答で自チームの勝率が上がった分は相手側にマイナスとして計上されるため、「Aチーム合計 − Bチーム合計 = Aチームの勝率の変化（現時点 − 開始時）」が成り立ちます。</div></div>`;
- o+=`<div class="card"><h3 style="margin-top:0">1問ごとの貢献度</h3><div class="tbl"><table class="nw"><tr><th class="num">問</th><th>問題文</th><th>正解</th><th>結果</th><th>選手</th><th>枠の変化</th><th class="num">${esc(m.lineup[0].name)}勝率</th><th class="num">貢献度</th></tr>
- ${rows.map(r=>{const ev=r.ev,q=m.questions[ev.q]||{};return `<tr><td class="num">${ev.q}</td><td class="qcell">${esc(q.text)}</td><td class="small">${esc(q.answer)}</td><td>${resultTxt(ev.type)}</td><td>${ev.type==='t'?'－':`<span class="${ev.side?'tagB':'tagA'}">${esc(m.lineup[ev.side].name)}</span> ${esc(ev.name)}`}</td><td class="small">${ev.type==='t'?'－':`枠${ev.frame} ${r.before.p}→${r.after.p}${r.after.r?' 休み':''}`}</td><td class="num small">${pct(r.WA0)}→${pct(r.WA1)}</td><td class="num ${ev.type==='t'?'zero':cls(r.c)}">${ev.type==='t'?'－':fmtC(r.c)}</td></tr>`;}).join('')||'<tr><td colspan="8" class="msg">記録がありません</td></tr>'}</table></div></div>`;
+ o+=`<div class="card"><h3 style="margin-top:0">1問ごとの貢献度</h3><div class="tbl"><table class="nw"><tr><th class="num">問</th><th>問題文</th><th>正解</th><th>結果</th><th>選手</th><th>枠の変化</th><th class="num">${esc(m.lineup[0].name)}勝率</th><th class="num">随時貢献度</th><th class="num">事後貢献度</th></tr>
+ ${rows.map(r=>{const ev=r.ev,q=m.questions[ev.q]||{};return `<tr><td class="num">${ev.q}</td><td class="qcell">${esc(q.text)}</td><td class="small">${esc(q.answer)}</td><td>${resultTxt(ev.type)}</td><td>${ev.type==='t'?'－':`<span class="${ev.side?'tagB':'tagA'}">${esc(m.lineup[ev.side].name)}</span> ${esc(ev.name)}`}</td><td class="small">${ev.type==='t'?'－':`枠${ev.frame} ${r.before.p}→${r.after.p}${r.after.r?' 休み':''}`}</td><td class="num small">${pct(r.WA0)}→${pct(r.WA1)}</td><td class="num ${ev.type==='t'?'zero':cls(r.c)}">${ev.type==='t'?'－':fmtC(r.c)}</td><td class="num ${r.h===null?"zero":hcls(r.h)}">${ev.type==='t'||r.h===null?'－':fmtH(r.h)}</td></tr>`;}).join('')||'<tr><td colspan="9" class="msg">記録がありません</td></tr>'}</table></div></div>`;
  document.getElementById('cout').innerHTML=o;
 }
 async function multiStats(ids,progress){
@@ -510,8 +548,9 @@ async function multiStats(ids,progress){
  for(const [k,id] of ids.entries()){const m=byId(id);if(!m)continue;
   const W=await computeW(m,progress?(i,n)=>progress(`試合${k+1}/${ids.length}：${i}/${n}`):null);
   for(const p of playerStats(m,contribRows(m,W))){
-   const s=map.get(p.key)||{key:p.key,name:p.name,full:p.full,team:p.team,games:0,o:0,x:0,co:0,cx:0,c:0,n:0};
-   s.name=p.name;s.team=p.team;s.games++;s.o+=p.o;s.x+=p.x;s.co+=p.co;s.cx+=p.cx;s.c+=p.c;s.n+=p.n;map.set(p.key,s);}
+   const s=map.get(p.key)||{key:p.key,name:p.name,full:p.full,team:p.team,games:0,o:0,x:0,co:0,cx:0,c:0,n:0,hg:0,ho:0,hx:0,h:0};
+   s.name=p.name;s.team=p.team;s.games++;s.o+=p.o;s.x+=p.x;s.co+=p.co;s.cx+=p.cx;s.c+=p.c;s.n+=p.n;
+   if(p.fin){s.hg++;s.ho+=p.ho;s.hx+=p.hx;s.h+=p.h;}map.set(p.key,s);}
  }
  return [...map.values()].sort((a,b)=>b.c-a.c);
 }
@@ -521,8 +560,9 @@ async function runMulti(){
  const pg=document.getElementById('prog');
  const ps=await multiStats(ids,t=>{if(pg)pg.textContent='計算中… '+t;});
  if(pg)pg.textContent='';
- document.getElementById('cout').innerHTML=`<div class="card"><h3 style="margin-top:0">${ids.length}試合の選手別貢献度</h3><div class="tbl"><table class="nw"><tr><th class="num">順位</th><th>チーム</th><th>選手</th><th class="num">出場</th><th class="num">正解</th><th class="num">誤答</th><th class="num">正解による</th><th class="num">誤答による</th><th class="num">合計</th><th class="num">1試合平均</th><th class="num">1解答平均</th></tr>
- ${ps.map((p,i)=>`<tr><td class="num">${i+1}</td><td>${esc(p.team)}</td><td>${esc(p.name)}</td><td class="num">${p.games}</td><td class="num">${p.o}</td><td class="num">${p.x}</td><td class="num ${cls(p.co)}">${fmtC(p.co)}</td><td class="num ${cls(p.cx)}">${fmtC(p.cx)}</td><td class="num ${cls(p.c)}">${fmtC(p.c)}</td><td class="num ${cls(p.c/p.games)}">${fmtC(p.c/p.games)}</td><td class="num">${p.n?fmtC(p.c/p.n):'－'}</td></tr>`).join('')}</table></div>
+ document.getElementById('cout').innerHTML=`<div class="card"><h3 style="margin-top:0">${ids.length}試合の選手別貢献度</h3><div class="tbl"><table class="nw"><tr><th class="num">順位</th><th>チーム</th><th>選手</th><th class="num">出場</th><th class="num">正解</th><th class="num">誤答</th><th class="num">正解による</th><th class="num">誤答による</th><th class="num">随時合計</th><th class="num">随時1試合平均</th><th class="num">随時1解答平均</th><th class="num">事後対象試合</th><th class="num">事後：正解</th><th class="num">事後：誤答</th><th class="num">事後合計</th><th class="num">事後1試合平均</th></tr>
+ ${ps.map((p,i)=>`<tr><td class="num">${i+1}</td><td>${esc(p.team)}</td><td>${esc(p.name)}</td><td class="num">${p.games}</td><td class="num">${p.o}</td><td class="num">${p.x}</td><td class="num ${cls(p.co)}">${fmtC(p.co)}</td><td class="num ${cls(p.cx)}">${fmtC(p.cx)}</td><td class="num ${cls(p.c)}">${fmtC(p.c)}</td><td class="num ${cls(p.c/p.games)}">${fmtC(p.c/p.games)}</td><td class="num">${p.n?fmtC(p.c/p.n):'－'}</td><td class="num">${p.hg}</td><td class="num">${p.hg?fmtH(p.ho):'－'}</td><td class="num">${p.hg?fmtH(p.hx):'－'}</td><td class="num">${p.hg?fmtH(p.h):'－'}</td><td class="num">${p.hg?fmtH(p.h/p.hg):'－'}</td></tr>`).join('')}</table></div>
+ <div class="msg">事後貢献度は、選択した試合のうち終了した試合だけで集計します（事後対象試合）。</div>
  <div class="msg">同じ選手の判定はチーム登録時の選手IDで行います（名前を変更しても、大会が違っても同一選手として集計）。</div></div>`;
 }
 
@@ -541,17 +581,17 @@ async function exportData(){
  const ids=db.matches.map(m=>m.id).filter(id=>db.ui.exSel.includes(id));
  if(!ids.length){alert('試合を選択してください');return null;}
  const pg=document.getElementById('prog');const log=[];
- const H1=['大会名','試合名','日付','問','問題文','正解','結果','チーム','枠','選手','正解者','誤答者','枠ポイント(前)','枠ポイント(後)','勝率基準チーム','基準チーム推定勝率(前)','基準チーム推定勝率(後)','貢献度'];
+ const H1=['大会名','試合名','日付','問','問題文','正解','結果','チーム','枠','選手','正解者','誤答者','枠ポイント(前)','枠ポイント(後)','勝率基準チーム','基準チーム推定勝率(前)','基準チーム推定勝率(後)','随時貢献度','事後貢献度'];
  for(const [k,id] of ids.entries()){const m=byId(id);
   const W=await computeW(m,(i,n)=>{if(pg)pg.textContent=`計算中… 試合${k+1}/${ids.length}：${i}/${n}`;});
   for(const r of contribRows(m,W)){const ev=r.ev,q=m.questions[ev.q]||{},t=ev.type;
-   log.push([tName(m),m.title,m.date,ev.q,q.text||'',q.answer||'',resultTxt(t),t==='t'?'':m.lineup[ev.side].name,t==='t'?'':ev.frame,t==='t'?'':ev.name,t==='o'?ev.name:'',t==='x'?ev.name:'',t==='t'?'':r.before.p,t==='t'?'':r.after.p,m.lineup[0].name,+r.WA0.toFixed(4),+r.WA1.toFixed(4),t==='t'?0:+(r.c*(+db.settings.scale)).toFixed(1)]);}
+   log.push([tName(m),m.title,m.date,ev.q,q.text||'',q.answer||'',resultTxt(t),t==='t'?'':m.lineup[ev.side].name,t==='t'?'':ev.frame,t==='t'?'':ev.name,t==='o'?ev.name:'',t==='x'?ev.name:'',t==='t'?'':r.before.p,t==='t'?'':r.after.p,m.lineup[0].name,+r.WA0.toFixed(4),+r.WA1.toFixed(4),t==='t'?0:+(r.c*(+db.settings.scale)).toFixed(1),t==='t'||r.h===null?'':+(r.h*100).toFixed(1)]);}
  }
  const ps=await multiStats(ids,null);if(pg)pg.textContent='';
- const H2=['順位','チーム','選手','記録用名前','出場試合数','正解数','誤答数','正解による貢献度','誤答による貢献度','貢献度合計','1試合平均'];
+ const H2=['順位','チーム','選手','記録用名前','出場試合数','正解数','誤答数','随時：正解による','随時：誤答による','随時合計','随時1試合平均','事後対象試合数','事後：正解による','事後：誤答による','事後合計','事後1試合平均'];
  const sc=+db.settings.scale,r1=x=>+(x*sc).toFixed(1);
- const per=ps.map((p,i)=>[i+1,p.team,p.full,p.name,p.games,p.o,p.x,r1(p.co),r1(p.cx),r1(p.c),r1(p.c/p.games)]);
- const note=`貢献度の単位：${unitTxt()}／計算方式：${modeTxt()}／勝利条件：積${db.settings.target}以上`;
+ const per=ps.map((p,i)=>[i+1,p.team,p.full,p.name,p.games,p.o,p.x,r1(p.co),r1(p.cx),r1(p.c),r1(p.c/p.games),p.hg,p.hg?+(p.ho*100).toFixed(1):'',p.hg?+(p.hx*100).toFixed(1):'',p.hg?+(p.h*100).toFixed(1):'',p.hg?+(p.h/p.hg*100).toFixed(1):'']);
+ const note=`随時貢献度の単位：${unitTxt()}／事後貢献度の単位：最終到達度を100とした点数（終了した試合のみ）／計算方式：${modeTxt()}／勝利条件：積${db.settings.target}以上`;
  const tids=[...new Set(ids.map(id=>byId(id).tid))];
  let name;
  if(tids.length===1){const tn=tById(tids[0]).name;name=ids.length===1?`${tn}_${byId(ids[0]).title}`:ids.length===matchesOf(tids[0]).length?tn:`${tn}_${ids.length}試合`;}
